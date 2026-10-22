@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventario-servidores
+  labels:
+    app: inventario-servidores
+    app.kubernetes.io/part-of: detran-inventario
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventario-servidores
+  template:
+    metadata:
+      labels:
+        app: inventario-servidores
+    spec:
+      containers:
+        - name: app
+          image: image-registry.openshift-image-registry.svc:5000/detran/inventario-servidores:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: inventario-servidores-config
+            - secretRef:
+                name: inventario-servidores-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL

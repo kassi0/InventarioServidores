@@ -1,0 +1,31 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: inventario-servidores
+  labels:
+    app: inventario-servidores
+    app.kubernetes.io/part-of: detran-inventario
+spec:
+  failedBuildsHistoryLimit: 5
+  successfulBuildsHistoryLimit: 5
+  runPolicy: Serial
+  source:
+    type: Git
+    git:
+      # Substitua pela URL do seu repositório GitHub
+      uri: https://github.com/seu-usuario-ou-org/inventario-servidores.git
+      ref: main
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: inventario-servidores:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+    - type: GitHub
+      github:
+        secret: github-webhook-secret

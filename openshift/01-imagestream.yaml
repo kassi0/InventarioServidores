@@ -1,0 +1,10 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: inventario-servidores
+  labels:
+    app: inventario-servidores
+    app.kubernetes.io/part-of: detran-inventario
+spec:
+  lookupPolicy:
+    local: true
