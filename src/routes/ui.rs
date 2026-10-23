@@ -619,7 +619,7 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
     <!-- Modal: Configurar as 5 Colunas -->
     <div id="modal-columns" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
         <div class="glass-panel bg-slate-900 border border-slate-700/80 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative space-y-4 max-h-[92vh] overflow-y-auto">
-            <button onclick="closeModal('modal-columns')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg">
+            <button onclick="applyAndCloseColumnsModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
             <div class="flex items-center justify-between border-b border-slate-800 pb-3 pr-8">
@@ -664,7 +664,7 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
                     <span class="text-slate-400 text-[10px] uppercase font-semibold">Escolha os 5 campos desejados:</span>
-                    <span id="columns-warning-text" class="text-[11px] text-amber-400 hidden animate-pulse font-medium">Limite de 5 atingido! Desmarque uma para escolher outra.</span>
+                    <span id="columns-warning-text" class="text-[11px] text-amber-400 hidden font-medium"></span>
                 </div>
                 <div id="modal-columns-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <!-- Cards dinâmicos gerados em renderColumnsModalContent() -->
@@ -684,7 +684,7 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
                     <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                     <span>Restaurar Padrão</span>
                 </button>
-                <button type="button" onclick="closeModal('modal-columns')" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-sky-600/20 transition-all flex items-center space-x-1.5">
+                <button type="button" onclick="applyAndCloseColumnsModal()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-sky-600/20 transition-all flex items-center space-x-1.5">
                     <i data-lucide="check" class="w-3.5 h-3.5"></i>
                     <span>Aplicar e Fechar</span>
                 </button>
@@ -894,7 +894,7 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
                 if (saved) {
                     const parsed = JSON.parse(saved);
                     const validIds = AVAILABLE_COLUMNS.map(c => c.id);
-                    if (Array.isArray(parsed) && parsed.length === 5 && parsed.every(id => validIds.includes(id))) {
+                    if (Array.isArray(parsed) && parsed.length >= 1 && parsed.length <= 5 && parsed.every(id => validIds.includes(id))) {
                         visibleColumns = parsed;
                     } else {
                         visibleColumns = ['status', 'nome', 'hostname', 'ip', 'ambiente'];
@@ -913,17 +913,8 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
 
         function saveVisibleColumns() {
             try {
-                // Garante que haja exatamente 5 colunas
                 if (visibleColumns.length > 5) {
                     visibleColumns = visibleColumns.slice(0, 5);
-                } else if (visibleColumns.length < 5) {
-                    const defaults = ['status', 'nome', 'hostname', 'ip', 'ambiente', 'equipe', 'servico', 'recursos', 'so', 'acoes'];
-                    for (const d of defaults) {
-                        if (!visibleColumns.includes(d)) {
-                            visibleColumns.push(d);
-                            if (visibleColumns.length === 5) break;
-                        }
-                    }
                 }
                 localStorage.setItem('detran_5_columns', JSON.stringify(visibleColumns));
             } catch (e) {
@@ -961,7 +952,9 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
                 // Não está selecionada - tentar adicionar
                 if (visibleColumns.length >= 5) {
                     if (warningEl) {
+                        warningEl.innerHTML = '<span class="inline-flex items-center text-amber-400 font-semibold"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 mr-1"></i> Limite de 5 atingido! Desmarque uma coluna acima para poder adicionar esta.</span>';
                         warningEl.classList.remove('hidden');
+                        lucide.createIcons();
                     }
                     return;
                 }
@@ -972,6 +965,49 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
             renderTableHeader();
             if (lastLoadedData) renderTable(lastLoadedData);
             renderColumnsModalContent();
+        }
+
+        function removeColumnAt(index) {
+            if (visibleColumns.length <= 1) {
+                alert('A tabela precisa de pelo menos 1 coluna selecionada.');
+                return;
+            }
+            if (index >= 0 && index < visibleColumns.length) {
+                visibleColumns.splice(index, 1);
+                saveVisibleColumns();
+                renderTableHeader();
+                if (lastLoadedData) renderTable(lastLoadedData);
+                renderColumnsModalContent();
+            }
+        }
+
+        function addColumnToSlot(slotIdx, colId) {
+            if (!colId) return;
+            if (visibleColumns.includes(colId)) return;
+            if (visibleColumns.length < 5) {
+                visibleColumns.push(colId);
+                saveVisibleColumns();
+                renderTableHeader();
+                if (lastLoadedData) renderTable(lastLoadedData);
+                renderColumnsModalContent();
+            }
+        }
+
+        function applyAndCloseColumnsModal() {
+            // Se o usuário fechou o modal com menos de 5 colunas, preenche as faltantes até 5 para manter o painel com 5 colunas
+            if (visibleColumns.length < 5) {
+                const defaults = ['status', 'nome', 'hostname', 'ip', 'ambiente', 'equipe', 'servico', 'recursos', 'so', 'acoes'];
+                for (const d of defaults) {
+                    if (!visibleColumns.includes(d)) {
+                        visibleColumns.push(d);
+                        if (visibleColumns.length === 5) break;
+                    }
+                }
+                saveVisibleColumns();
+                renderTableHeader();
+                if (lastLoadedData) renderTable(lastLoadedData);
+            }
+            closeModal('modal-columns');
         }
 
         function updateColumnSlot(slotIdx, newColId) {
@@ -1035,25 +1071,33 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
                 AVAILABLE_COLUMNS.forEach(col => {
                     const isSelected = visibleColumns.includes(col.id);
                     const pos = visibleColumns.indexOf(col.id);
-                    const posBadge = isSelected ? `<span class="bg-sky-500 text-white font-mono text-[10px] font-bold px-1.5 py-0.5 rounded">#${pos + 1}</span>` : '';
 
                     const borderClass = isSelected
-                        ? 'border-sky-500/80 bg-sky-500/10 shadow-sm shadow-sky-500/10'
-                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 opacity-80';
+                        ? 'border-sky-500/80 bg-sky-500/10 hover:bg-sky-500/20 hover:border-red-500/60 shadow-sm shadow-sky-500/10'
+                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-600 hover:bg-slate-900/80 opacity-90';
+
+                    const rightBadge = isSelected
+                        ? `<div class="flex items-center space-x-1.5">
+                             <span class="bg-sky-500 text-white font-mono text-[10px] font-bold px-1.5 py-0.5 rounded">#${pos + 1}</span>
+                             <span class="text-[10px] text-red-400 font-medium hidden group-hover:inline-block">✕ Desmarcar</span>
+                           </div>`
+                        : (visibleColumns.length >= 5
+                            ? `<span class="text-[10px] text-slate-500 font-mono">Cheio (5/5)</span>`
+                            : `<span class="text-[10px] text-sky-400 font-mono font-medium group-hover:text-sky-300">+ Selecionar</span>`);
 
                     html += `
-                        <div onclick="toggleColumnSelection('${col.id}')" class="cursor-pointer p-2.5 rounded-xl border ${borderClass} flex items-center justify-between transition-all select-none">
+                        <div onclick="toggleColumnSelection('${col.id}')" title="${isSelected ? 'Clique para desmarcar' : (visibleColumns.length >= 5 ? 'Limite de 5 atingido - desmarque uma primeiro' : 'Clique para selecionar')}" class="group cursor-pointer p-2.5 rounded-xl border ${borderClass} flex items-center justify-between transition-all select-none">
                             <div class="flex items-center space-x-2.5 min-w-0">
-                                <div class="w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-sky-600 border-sky-500 text-white' : 'border-slate-600 bg-slate-900'}">
-                                    ${isSelected ? '<i data-lucide="check" class="w-3 h-3"></i>' : ''}
+                                <div class="w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-sky-600 border-sky-500 text-white group-hover:bg-red-500/20 group-hover:border-red-400' : 'border-slate-600 bg-slate-900 group-hover:border-sky-500'}">
+                                    ${isSelected ? '<i data-lucide="check" class="w-3 h-3 group-hover:hidden"></i><i data-lucide="x" class="w-3 h-3 text-red-400 hidden group-hover:block"></i>' : ''}
                                 </div>
                                 <div class="truncate">
-                                    <span class="font-semibold text-white text-xs block truncate">${col.label}</span>
+                                    <span class="font-semibold text-white text-xs block truncate group-hover:text-sky-300 transition-colors">${col.label}</span>
                                     <span class="text-[10px] text-slate-400 block truncate">${col.desc}</span>
                                 </div>
                             </div>
                             <div class="flex-shrink-0 ml-2">
-                                ${posBadge}
+                                ${rightBadge}
                             </div>
                         </div>
                     `;
@@ -1065,22 +1109,43 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
             const slotsContainer = document.getElementById('modal-columns-slots');
             if (slotsContainer) {
                 let html = '';
-                const effectiveCols = visibleColumns.slice(0, 5);
-                effectiveCols.forEach((curCol, idx) => {
-                    html += `
-                        <div class="flex items-center justify-between space-x-2 bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-                            <span class="text-xs font-mono font-semibold text-sky-400 w-24">Posição ${idx + 1}:</span>
-                            <select onchange="updateColumnSlot(${idx}, this.value)" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
-                    `;
-                    AVAILABLE_COLUMNS.forEach(c => {
-                        const sel = c.id === curCol ? 'selected' : '';
-                        html += `<option value="${c.id}" ${sel}>${c.label}</option>`;
-                    });
-                    html += `
-                            </select>
-                        </div>
-                    `;
-                });
+                for (let i = 0; i < 5; i++) {
+                    const curCol = visibleColumns[i];
+                    if (curCol) {
+                        html += `
+                            <div class="flex items-center justify-between space-x-2 bg-slate-950/60 p-2 rounded-xl border border-slate-800">
+                                <span class="text-xs font-mono font-semibold text-sky-400 w-24">Posição ${i + 1}:</span>
+                                <select onchange="updateColumnSlot(${i}, this.value)" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                        `;
+                        AVAILABLE_COLUMNS.forEach(c => {
+                            const sel = c.id === curCol ? 'selected' : '';
+                            html += `<option value="${c.id}" ${sel}>${c.label}</option>`;
+                        });
+                        html += `
+                                </select>
+                                <button type="button" onclick="removeColumnAt(${i})" title="Desmarcar esta coluna" class="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors">
+                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="flex items-center justify-between space-x-2 bg-slate-950/30 p-2 rounded-xl border border-dashed border-slate-800">
+                                <span class="text-xs font-mono font-semibold text-slate-500 w-24">Posição ${i + 1}:</span>
+                                <select onchange="addColumnToSlot(${i}, this.value)" class="flex-1 bg-slate-900/60 border border-slate-700/60 border-dashed rounded-lg px-2.5 py-1.5 text-xs text-slate-400 focus:outline-none focus:border-sky-500">
+                                    <option value="" selected disabled>+ Selecione para a Posição ${i + 1}...</option>
+                        `;
+                        AVAILABLE_COLUMNS.forEach(c => {
+                            if (!visibleColumns.includes(c.id)) {
+                                html += `<option value="${c.id}" class="text-white bg-slate-900">${c.label}</option>`;
+                            }
+                        });
+                        html += `
+                                </select>
+                            </div>
+                        `;
+                    }
+                }
                 slotsContainer.innerHTML = html;
             }
 
