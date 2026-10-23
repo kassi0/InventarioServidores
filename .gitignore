@@ -4,7 +4,5 @@
 *.db-wal
 .DS_Store
 .env
-Cargo.lock
-Cargo.toml
 .env_prod
 /openshift*
