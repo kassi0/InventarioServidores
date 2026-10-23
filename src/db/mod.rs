@@ -100,6 +100,7 @@ impl DbPool {
                 info!("Migração SQLite executada com sucesso.");
             }
             DbPool::Postgres(pool) => {
+                // 1. Tabela de servidores
                 sqlx::query(
                     r#"
                     CREATE TABLE IF NOT EXISTS servidores (
@@ -121,13 +122,22 @@ impl DbPool {
                         admin_password VARCHAR(255),
                         created_at VARCHAR(100) NOT NULL DEFAULT (to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')),
                         updated_at VARCHAR(100) NOT NULL DEFAULT (to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS'))
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_servidores_nome ON servidores(nome);
-                    CREATE INDEX IF NOT EXISTS idx_servidores_ip ON servidores(ip);
-                    CREATE INDEX IF NOT EXISTS idx_servidores_ambiente ON servidores(ambiente);
-                    CREATE INDEX IF NOT EXISTS idx_servidores_equipe ON servidores(equipe_resp);
-                    CREATE INDEX IF NOT EXISTS idx_servidores_state ON servidores(state);
+                    )
+                    "#,
+                )
+                .execute(pool)
+                .await?;
 
+                // Índices da tabela servidores
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_servidores_nome ON servidores(nome)").execute(pool).await?;
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_servidores_ip ON servidores(ip)").execute(pool).await?;
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_servidores_ambiente ON servidores(ambiente)").execute(pool).await?;
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_servidores_equipe ON servidores(equipe_resp)").execute(pool).await?;
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_servidores_state ON servidores(state)").execute(pool).await?;
+
+                // 2. Tabela de logs de auditoria
+                sqlx::query(
+                    r#"
                     CREATE TABLE IF NOT EXISTS audit_logs (
                         id BIGSERIAL PRIMARY KEY,
                         username VARCHAR(255) NOT NULL,
@@ -136,15 +146,18 @@ impl DbPool {
                         servidor_nome VARCHAR(255),
                         detalhes TEXT,
                         created_at VARCHAR(100) NOT NULL DEFAULT (to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS'))
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at);
-                    CREATE INDEX IF NOT EXISTS idx_audit_username ON audit_logs(username);
-                    CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
+                    )
                     "#,
                 )
                 .execute(pool)
                 .await?;
 
+                // Índices da tabela audit_logs
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at)").execute(pool).await?;
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_audit_username ON audit_logs(username)").execute(pool).await?;
+                sqlx::query("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action)").execute(pool).await?;
+
+                // Garante que colunas administrativas existam mesmo se a tabela já foi criada anteriormente
                 let _ = sqlx::query("ALTER TABLE servidores ADD COLUMN IF NOT EXISTS admin_user VARCHAR(255)").execute(pool).await;
                 let _ = sqlx::query("ALTER TABLE servidores ADD COLUMN IF NOT EXISTS admin_password VARCHAR(255)").execute(pool).await;
 
