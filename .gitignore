@@ -7,3 +7,4 @@
 Cargo.lock
 Cargo.toml
 .env_prod
+/openshift
