@@ -267,7 +267,10 @@ impl DbPool {
         let per_page = query.per_page.unwrap_or(20).clamp(1, 200);
         let offset = (page - 1) * per_page;
 
-        let q_pattern = query.q.as_deref().map(|s| format!("%{}%", s.trim().to_lowercase()));
+        let q_pattern = query.q.as_deref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| format!("%{}%", s.to_lowercase()));
         let ambiente_filter = query.ambiente.as_deref().filter(|s| !s.trim().is_empty());
         let equipe_filter = query.equipe.as_deref().filter(|s| !s.trim().is_empty());
         let state_filter = query.state.as_deref().filter(|s| !s.trim().is_empty());

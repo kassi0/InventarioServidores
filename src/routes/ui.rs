@@ -231,7 +231,10 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
                 <!-- Search Input -->
                 <div class="sm:col-span-6 relative">
                     <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                    <input type="text" id="input-search" oninput="debounceSearch()" placeholder="Buscar por Nome, Hostname, IP, Serviço ou Sistema Operacional..." class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all">
+                    <input type="search" id="input-search" name="search_servidores" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="debounceSearch()" placeholder="Buscar por Nome, Hostname, IP, Serviço ou Sistema Operacional..." class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-9 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all">
+                    <button type="button" id="btn-clear-search" onclick="clearSearch()" title="Limpar busca" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800 transition-all">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
                 </div>
 
                 <!-- Equipe Dropdown -->
@@ -879,6 +882,10 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
         document.addEventListener('DOMContentLoaded', async () => {
             initVisibleColumns();
             lucide.createIcons();
+            const searchInput = document.getElementById('input-search');
+            if (searchInput) searchInput.value = '';
+            currentQuery.q = '';
+            updateClearSearchButton();
             await checkAuth();
             await loadStats();
             await loadServidores();
@@ -1293,13 +1300,29 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
             const tbody = document.getElementById('table-body');
 
             if (!data.items || data.items.length === 0) {
+                const hasSearch = currentQuery.q && currentQuery.q.trim().length > 0;
+                const hasAmb = currentQuery.ambiente && currentQuery.ambiente.trim().length > 0;
+                const hasEquipe = currentQuery.equipe && currentQuery.equipe.trim().length > 0;
+                const hasState = currentQuery.state && currentQuery.state.trim().length > 0;
+
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="py-12 text-center text-slate-500">
-                            Nenhum servidor encontrado com os filtros selecionados.
+                        <td colspan="5" class="py-12 text-center text-slate-400">
+                            <div class="flex flex-col items-center justify-center space-y-3">
+                                <i data-lucide="search-x" class="w-8 h-8 text-slate-500"></i>
+                                <span class="font-semibold text-slate-300 text-sm">Nenhum servidor encontrado</span>
+                                ${hasSearch ? `<span class="text-xs text-amber-400 font-mono bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">Filtro de busca ativo: "${escapeHtml(currentQuery.q)}"</span>` : ''}
+                                ${(hasSearch || hasAmb || hasEquipe || hasState) ? `
+                                    <button onclick="clearAllFilters()" class="mt-2 px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center space-x-1.5">
+                                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                        <span>Limpar Busca e Filtros</span>
+                                    </button>
+                                ` : ''}
+                            </div>
                         </td>
                     </tr>
                 `;
+                lucide.createIcons();
                 return;
             }
 
@@ -1317,6 +1340,51 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
 
             tbody.innerHTML = html;
             lucide.createIcons();
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('input-search');
+            if (input) input.value = '';
+            currentQuery.q = '';
+            currentQuery.page = 1;
+            updateClearSearchButton();
+            loadServidores();
+        }
+
+        function clearAllFilters() {
+            const input = document.getElementById('input-search');
+            if (input) input.value = '';
+            currentQuery.q = '';
+            currentQuery.ambiente = '';
+            currentQuery.equipe = '';
+            currentQuery.state = '';
+            currentQuery.page = 1;
+            const eq = document.getElementById('select-equipe');
+            if (eq) eq.value = '';
+            const st = document.getElementById('select-state');
+            if (st) st.value = '';
+            document.querySelectorAll('.amb-tab').forEach(b => {
+                if (b.getAttribute('data-amb') === '') {
+                    b.className = 'amb-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-sm transition-all whitespace-nowrap';
+                } else {
+                    b.className = 'amb-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-all whitespace-nowrap';
+                }
+            });
+            updateClearSearchButton();
+            loadServidores();
+        }
+
+        function updateClearSearchButton() {
+            const input = document.getElementById('input-search');
+            const btn = document.getElementById('btn-clear-search');
+            if (btn && input) {
+                if (input.value && input.value.trim().length > 0) {
+                    btn.classList.remove('hidden');
+                    lucide.createIcons();
+                } else {
+                    btn.classList.add('hidden');
+                }
+            }
         }
 
         function renderPagination(data) {
@@ -1370,9 +1438,10 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
         }
 
         function debounceSearch() {
+            updateClearSearchButton();
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
-                currentQuery.q = document.getElementById('input-search').value;
+                currentQuery.q = document.getElementById('input-search').value.trim();
                 currentQuery.page = 1;
                 loadServidores();
             }, 300);
