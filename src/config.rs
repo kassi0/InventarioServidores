@@ -24,7 +24,25 @@ impl Config {
             .and_then(|p| p.parse().ok())
             .unwrap_or(8080);
 
-        let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://servidores.db".to_string());
+        let use_sqlite = env::var("USE_SQLITE")
+            .map(|v| v == "1" || v.to_lowercase() == "true")
+            .unwrap_or(false);
+
+        let database_url = if use_sqlite {
+            "sqlite://servidores.db".to_string()
+        } else if let Ok(url) = env::var("DATABASE_URL") {
+            url
+        } else if let Ok(db) = env::var("POSTGRES_DB") {
+            let host = env::var("POSTGRES_HOST").unwrap_or_else(|_| "postgres.detran-apps-internos.svc.cluster.local".to_string());
+            let port = env::var("POSTGRES_PORT").unwrap_or_else(|_| "5432".to_string());
+            let user = env::var("POSTGRES_USER").unwrap_or_else(|_| "inventario".to_string());
+            let pwd = env::var("POSTGRES_PWD")
+                .or_else(|_| env::var("POSTGRES_PASSWORD"))
+                .unwrap_or_else(|_| "pwdinventario".to_string());
+            format!("postgres://{}:{}@{}:{}/{}", user, pwd, host, port, db)
+        } else {
+            "sqlite://servidores.db".to_string()
+        };
         let is_postgres = database_url.starts_with("postgres://") || database_url.starts_with("postgresql://");
 
         let ldap_host = env::var("LDAP").unwrap_or_else(|_| "10.21.246.3".to_string());

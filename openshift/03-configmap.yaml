@@ -13,3 +13,6 @@ data:
   PORT: "8080"
   RUST_LOG: "info,inventario_servidores=info"
   DEV_MODE: "false"
+  POSTGRES_HOST: "postgres.detran-apps-internos.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "inventario"
