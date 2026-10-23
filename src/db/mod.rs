@@ -10,7 +10,7 @@ use sqlx::{
 use std::str::FromStr;
 use tracing::info;
 
-const SEED_DATA: &str = include_str!("../../../InventarioServidores/seed_servidores.json");
+const SEED_DATA: &str = include_str!("../../seed_servidores.json");
 
 #[derive(Clone)]
 pub enum DbPool {
