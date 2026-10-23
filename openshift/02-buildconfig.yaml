@@ -13,8 +13,8 @@ spec:
     type: Git
     git:
       # Substitua pela URL do seu repositório GitHub
-      uri: https://github.com/seu-usuario-ou-org/inventario-servidores.git
-      ref: main
+      uri: https://github.com/kassi0/InventarioServidores.git
+      ref: mastermain
   strategy:
     type: Docker
     dockerStrategy:
